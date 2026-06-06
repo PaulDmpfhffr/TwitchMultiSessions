@@ -177,4 +177,10 @@ function cleanTmp() {
   }
 }
 
-module.exports = { startSessions, stopSessions, getStatus }
+function getPage(id) {
+  const session = sessions.get(id)
+  if (!session || !session.page || session.status !== 'active') return null
+  return session.page
+}
+
+module.exports = { startSessions, stopSessions, getStatus, getPage }

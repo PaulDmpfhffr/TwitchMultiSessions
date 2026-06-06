@@ -14,7 +14,7 @@
     </header>
 
     <main>
-      <!-- Colonne gauche : configuration -->
+      <!-- Rangée haute : config + connexions réseau -->
       <section class="panel panel--config">
 
         <div class="field">
@@ -62,23 +62,33 @@
         <div id="action-message" class="action-message hidden"></div>
       </section>
 
-      <!-- Colonne droite : proxys + statut -->
       <section class="panel panel--right">
-
         <div class="proxies-header">
           <h2>Connexions réseau</h2>
           <button id="btn-add-proxy" class="btn btn--ghost btn--sm">+ Ajouter</button>
         </div>
 
-        <div id="proxy-list" class="proxy-list">
-          <!-- généré par app.js -->
-        </div>
+        <div id="proxy-list" class="proxy-list"></div>
 
-        <h2 class="sessions-title">Sessions actives</h2>
+        <h2 class="sessions-title">Sessions</h2>
         <div id="session-list" class="session-list">
           <p class="empty-state">Aucune session en cours.</p>
         </div>
+      </section>
 
+      <!-- Rangée basse : grille d'aperçus pleine largeur -->
+      <section class="panel panel--previews">
+        <div class="preview-header">
+          <h2>Aperçus</h2>
+          <div class="preview-interval">
+            <span id="interval-display">5s</span>
+            <input id="screenshot-interval" type="range" min="2" max="30" value="5" step="1" />
+          </div>
+        </div>
+
+        <div id="screenshot-grid" class="screenshot-grid">
+          <p class="empty-state">Les aperçus apparaîtront au lancement.</p>
+        </div>
       </section>
     </main>
   </div>

@@ -48,6 +48,19 @@ app.get('/api/status', (req, res) => {
   res.json(sessionManager.getStatus())
 })
 
+app.get('/api/session/:id/screenshot', async (req, res) => {
+  const page = sessionManager.getPage(parseInt(req.params.id))
+  if (!page) return res.status(404).end()
+  try {
+    const buffer = await page.screenshot({ type: 'jpeg', quality: 40 })
+    res.setHeader('Content-Type', 'image/jpeg')
+    res.setHeader('Cache-Control', 'no-store')
+    res.send(buffer)
+  } catch {
+    res.status(500).end()
+  }
+})
+
 // --- Démarrage ---
 
 app.listen(PORT, () => {

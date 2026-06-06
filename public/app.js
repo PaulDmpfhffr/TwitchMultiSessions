@@ -1,7 +1,10 @@
 // --- État local ---
 let proxies = []
 let statusPollInterval = null
+let screenshotInterval = null
+let currentSessions = []
 let isRunning = false
+let screenshotDelay = 5000
 
 // --- DOM ---
 const urlInput       = document.getElementById('url-input')
@@ -13,9 +16,12 @@ const btnStop        = document.getElementById('btn-stop')
 const actionMsg      = document.getElementById('action-message')
 const proxyList      = document.getElementById('proxy-list')
 const sessionList    = document.getElementById('session-list')
+const screenshotGrid = document.getElementById('screenshot-grid')
 const globalStatus   = document.getElementById('global-status')
 const btnAddProxy    = document.getElementById('btn-add-proxy')
-const discretToggle  = document.getElementById('discret-toggle')
+const discretToggle      = document.getElementById('discret-toggle')
+const screenshotSlider   = document.getElementById('screenshot-interval')
+const intervalDisplay    = document.getElementById('interval-display')
 
 // --- Init ---
 async function init() {
@@ -26,6 +32,11 @@ async function init() {
   if (config.lastUrl)          urlInput.value = config.lastUrl
   if (config.lastSessionCount) sessionSlider.value = config.lastSessionCount
   if (config.discret)          discretToggle.checked = config.discret
+  if (config.screenshotDelay) {
+    screenshotDelay = config.screenshotDelay
+    screenshotSlider.value = config.screenshotDelay / 1000
+    intervalDisplay.textContent = `${config.screenshotDelay / 1000}s`
+  }
 
   updateCountDisplay()
   renderProxies()
@@ -123,12 +134,21 @@ function saveConfig() {
     lastUrl: urlInput.value,
     lastSessionCount: parseInt(sessionSlider.value),
     discret: discretToggle.checked,
+    screenshotDelay,
   })
 }
 
 urlInput.addEventListener('change', saveConfig)
 sessionSlider.addEventListener('change', saveConfig)
 discretToggle.addEventListener('change', saveConfig)
+
+screenshotSlider.addEventListener('input', () => {
+  const val = parseInt(screenshotSlider.value)
+  intervalDisplay.textContent = `${val}s`
+  screenshotDelay = val * 1000
+  restartScreenshotPoll()
+  saveConfig()
+})
 
 // --- Démarrer / Arrêter ---
 btnStart.addEventListener('click', async () => {
@@ -159,6 +179,8 @@ btnStop.addEventListener('click', async () => {
   const res = await apiFetch('/api/stop', 'POST', {})
   if (res) showMessage(res.message)
   setRunning(false)
+  currentSessions = []
+  stopScreenshotPoll()
   renderSessionList([])
   setGlobalStatus('idle')
 })
@@ -179,6 +201,7 @@ function startStatusPoll() {
 async function pollStatus() {
   const sessions = await apiFetch('/api/status')
   if (!sessions) return
+  currentSessions = sessions
   renderSessionList(sessions)
   updateGlobalStatus(sessions)
 }
@@ -186,19 +209,81 @@ async function pollStatus() {
 function renderSessionList(sessions) {
   if (!sessions.length) {
     sessionList.innerHTML = '<p class="empty-state">Aucune session en cours.</p>'
+    screenshotGrid.innerHTML = '<p class="empty-state">Les aperçus apparaîtront au lancement.</p>'
+    stopScreenshotPoll()
     return
   }
 
-  sessionList.innerHTML = sessions.map(s => `
-    <div class="session-card">
-      <div class="session-card__num">#${s.id}</div>
-      <div class="session-card__info">
-        <div class="session-card__proxy">${escHtml(s.proxy)}</div>
-        ${s.error ? `<div class="session-card__error">${escHtml(s.error)}</div>` : ''}
+  const existingIds = [...sessionList.querySelectorAll('.session-card')].map(el => el.dataset.id)
+  const newIds = sessions.map(s => String(s.id))
+  const idsChanged = JSON.stringify(existingIds) !== JSON.stringify(newIds)
+
+  // Session cards — format simple
+  if (idsChanged) {
+    sessionList.innerHTML = sessions.map(s => `
+      <div class="session-card" data-id="${s.id}">
+        <div class="session-card__num">#${s.id}</div>
+        <div class="session-card__info">
+          <div class="session-card__proxy">${escHtml(s.proxy)}</div>
+          ${s.error ? `<div class="session-card__error">${escHtml(s.error)}</div>` : ''}
+        </div>
+        <span class="badge badge--${s.status}" id="badge-${s.id}">${labelStatus(s.status)}</span>
       </div>
-      <span class="badge badge--${s.status}">${labelStatus(s.status)}</span>
-    </div>
-  `).join('')
+    `).join('')
+  } else {
+    sessions.forEach(s => {
+      const badge = document.getElementById(`badge-${s.id}`)
+      if (badge) { badge.className = `badge badge--${s.status}`; badge.textContent = labelStatus(s.status) }
+    })
+  }
+
+  // Grille de thumbnails
+  if (idsChanged) {
+    screenshotGrid.innerHTML = sessions.map(s => `
+      <div class="screenshot-thumb" id="thumb-${s.id}">
+        <div class="screenshot-thumb__placeholder" id="thumb-placeholder-${s.id}">
+          #${s.id}
+        </div>
+        <img id="screenshot-${s.id}" alt="" style="display:none" />
+        <div class="screenshot-thumb__label">#${s.id}</div>
+      </div>
+    `).join('')
+    restartScreenshotPoll()
+  }
+}
+
+// --- Screenshots ---
+function restartScreenshotPoll() {
+  stopScreenshotPoll()
+  if (!currentSessions.length) return
+  refreshScreenshots()
+  screenshotInterval = setInterval(refreshScreenshots, screenshotDelay)
+}
+
+function stopScreenshotPoll() {
+  if (screenshotInterval) { clearInterval(screenshotInterval); screenshotInterval = null }
+}
+
+async function refreshScreenshots() {
+  for (const session of currentSessions) {
+    if (session.status !== 'active') continue
+    const img = document.getElementById(`screenshot-${session.id}`)
+    const placeholder = document.getElementById(`thumb-placeholder-${session.id}`)
+    if (!img) continue
+
+    const newSrc = `/api/session/${session.id}/screenshot?t=${Date.now()}`
+    const tempImg = new Image()
+    tempImg.onload = () => {
+      img.src = newSrc
+      img.style.display = 'block'
+      if (placeholder) placeholder.style.display = 'none'
+    }
+    tempImg.onerror = () => {
+      img.style.display = 'none'
+      if (placeholder) placeholder.style.display = ''
+    }
+    tempImg.src = newSrc
+  }
 }
 
 function updateGlobalStatus(sessions) {
