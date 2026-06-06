@@ -100,6 +100,7 @@ async function launchSession(id, url, proxyAddress, discret) {
         '--disable-blink-features=AutomationControlled',
         '--disable-gpu',
         '--renderer-process-limit=1',
+        '--mute-audio',
         winSize,
         `--window-position=${pos.x},${pos.y}`,
       ],
