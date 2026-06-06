@@ -16,8 +16,10 @@ const btnStop        = document.getElementById('btn-stop')
 const actionMsg      = document.getElementById('action-message')
 const proxyList      = document.getElementById('proxy-list')
 const sessionList    = document.getElementById('session-list')
-const screenshotGrid = document.getElementById('screenshot-grid')
-const globalStatus   = document.getElementById('global-status')
+const screenshotGrid   = document.getElementById('screenshot-grid')
+const globalStatus     = document.getElementById('global-status')
+const viewerCountEl    = document.getElementById('viewer-count')
+const viewerCountValue = document.getElementById('viewer-count-value')
 const btnAddProxy    = document.getElementById('btn-add-proxy')
 const discretToggle      = document.getElementById('discret-toggle')
 const screenshotSlider   = document.getElementById('screenshot-interval')
@@ -164,6 +166,7 @@ btnStart.addEventListener('click', async () => {
 
   setRunning(true)
   showMessage(`Lancement de ${sessionCount} session(s)…`)
+  startViewerPoll()
 
   const res = await apiFetch('/api/start', 'POST', { url, sessionCount, proxies: activeProxies, discret })
   if (!res) {
@@ -181,6 +184,7 @@ btnStop.addEventListener('click', async () => {
   setRunning(false)
   currentSessions = []
   stopScreenshotPoll()
+  stopViewerPoll()
   renderSessionList([])
   setGlobalStatus('idle')
 })
@@ -189,6 +193,30 @@ function setRunning(running) {
   isRunning = running
   btnStart.disabled = running
   btnStop.disabled = !running
+}
+
+// --- Compteur de viewers ---
+let viewerPollInterval = null
+
+function startViewerPoll() {
+  if (viewerPollInterval) clearInterval(viewerPollInterval)
+  pollViewers()
+  viewerPollInterval = setInterval(pollViewers, 5000)
+}
+
+function stopViewerPoll() {
+  if (viewerPollInterval) { clearInterval(viewerPollInterval); viewerPollInterval = null }
+  viewerCountEl.classList.add('hidden')
+}
+
+async function pollViewers() {
+  const data = await apiFetch('/api/viewers')
+  if (!data || data.count === null) {
+    viewerCountEl.classList.add('hidden')
+    return
+  }
+  viewerCountValue.textContent = data.count.toLocaleString('fr-FR')
+  viewerCountEl.classList.remove('hidden')
 }
 
 // --- Statut sessions ---

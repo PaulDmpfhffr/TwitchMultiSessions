@@ -48,6 +48,11 @@ app.get('/api/status', (req, res) => {
   res.json(sessionManager.getStatus())
 })
 
+app.get('/api/viewers', async (req, res) => {
+  const count = await sessionManager.getViewerCount()
+  res.json({ count })
+})
+
 app.post('/api/session/:id/focus', async (req, res) => {
   const ok = await sessionManager.focusSession(parseInt(req.params.id))
   res.json({ ok })

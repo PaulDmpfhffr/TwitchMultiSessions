@@ -190,4 +190,22 @@ async function focusSession(id) {
   return true
 }
 
-module.exports = { startSessions, stopSessions, getStatus, getPage, focusSession }
+async function getViewerCount() {
+  for (const [, session] of sessions.entries()) {
+    if (session.status !== 'active' || !session.page) continue
+    try {
+      const count = await session.page.evaluate(() => {
+        const el = document.querySelector('[data-a-target="animated-channel-viewers-count"]')
+        if (!el) return null
+        const text = el.querySelector('span')?.textContent ?? el.textContent
+        // Supprime séparateurs de milliers (espace, virgule) puis parse
+        const num = parseInt(text.replace(/[\s,]/g, ''))
+        return isNaN(num) ? null : num
+      })
+      if (count !== null) return count
+    } catch {}
+  }
+  return null
+}
+
+module.exports = { startSessions, stopSessions, getStatus, getPage, focusSession, getViewerCount }

@@ -39,9 +39,44 @@ html, body {
 header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
   margin-bottom: 28px;
 }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.viewer-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.viewer-count svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+#viewer-count-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-count__label {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.viewer-count.hidden { display: none; }
 
 header h1 {
   font-size: 20px;
@@ -169,6 +204,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 /* Mode discret */
 .field--inline {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 12px;
 }
