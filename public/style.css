@@ -417,6 +417,12 @@ h2 {
   border-radius: 4px;
   overflow: hidden;
   border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.screenshot-thumb:hover {
+  border-color: var(--purple);
 }
 
 .screenshot-thumb img {

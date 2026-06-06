@@ -240,14 +240,19 @@ function renderSessionList(sessions) {
   // Grille de thumbnails
   if (idsChanged) {
     screenshotGrid.innerHTML = sessions.map(s => `
-      <div class="screenshot-thumb" id="thumb-${s.id}">
-        <div class="screenshot-thumb__placeholder" id="thumb-placeholder-${s.id}">
-          #${s.id}
-        </div>
+      <div class="screenshot-thumb" id="thumb-${s.id}" data-session-id="${s.id}">
+        <div class="screenshot-thumb__placeholder" id="thumb-placeholder-${s.id}">#${s.id}</div>
         <img id="screenshot-${s.id}" alt="" style="display:none" />
         <div class="screenshot-thumb__label">#${s.id}</div>
       </div>
     `).join('')
+
+    screenshotGrid.querySelectorAll('.screenshot-thumb').forEach(el => {
+      el.addEventListener('click', () => {
+        apiFetch(`/api/session/${el.dataset.sessionId}/focus`, 'POST', {})
+      })
+    })
+
     restartScreenshotPoll()
   }
 }

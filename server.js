@@ -48,6 +48,11 @@ app.get('/api/status', (req, res) => {
   res.json(sessionManager.getStatus())
 })
 
+app.post('/api/session/:id/focus', async (req, res) => {
+  const ok = await sessionManager.focusSession(parseInt(req.params.id))
+  res.json({ ok })
+})
+
 app.get('/api/session/:id/screenshot', async (req, res) => {
   const page = sessionManager.getPage(parseInt(req.params.id))
   if (!page) return res.status(404).end()

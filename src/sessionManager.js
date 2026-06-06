@@ -183,4 +183,11 @@ function getPage(id) {
   return session.page
 }
 
-module.exports = { startSessions, stopSessions, getStatus, getPage }
+async function focusSession(id) {
+  const session = sessions.get(id)
+  if (!session?.page) return false
+  await session.page.bringToFront()
+  return true
+}
+
+module.exports = { startSessions, stopSessions, getStatus, getPage, focusSession }
