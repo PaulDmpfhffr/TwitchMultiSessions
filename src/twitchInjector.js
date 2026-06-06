@@ -8,6 +8,25 @@ const TWITCH_INIT_SCRIPT = `
   let attempts = 0
   let playerFound = false
 
+  // Accepte automatiquement la bannière de consentement cookies.
+  function bypassConsentBanner() {
+    const SELECTOR = '[data-a-target="consent-banner-accept"]'
+
+    function tryClick() {
+      const btn = document.querySelector(SELECTOR)
+      if (btn) { btn.click(); return true }
+      return false
+    }
+
+    if (tryClick()) return
+
+    const observer = new MutationObserver(() => {
+      if (tryClick()) observer.disconnect()
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    setTimeout(() => observer.disconnect(), 30000)
+  }
+
   // Clique automatiquement sur le bouton de confirmation "contenu mature".
   // Utilise un MutationObserver pour détecter l'apparition du bouton sans polling.
   function bypassMatureGate() {
@@ -98,11 +117,13 @@ const TWITCH_INIT_SCRIPT = `
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       minimizeVideoRendering()
+      bypassConsentBanner()
       bypassMatureGate()
       waitForPlayer()
     })
   } else {
     minimizeVideoRendering()
+    bypassConsentBanner()
     bypassMatureGate()
     waitForPlayer()
   }
