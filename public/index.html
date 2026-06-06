@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MVL — Multi-Viewer Local</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>MVL <span>Multi-Viewer Local</span></h1>
+      <div id="global-status" class="badge badge--idle">Inactif</div>
+    </header>
+
+    <main>
+      <!-- Colonne gauche : configuration -->
+      <section class="panel panel--config">
+
+        <div class="field">
+          <label for="url-input">URL du stream</label>
+          <input
+            id="url-input"
+            type="url"
+            placeholder="https://twitch.tv/nom_du_stream"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="field">
+          <label for="session-count">
+            Nombre de sessions
+            <span id="count-display" class="count-badge">2</span>
+          </label>
+          <input id="session-count" type="range" min="1" max="10" value="2" />
+          <div class="range-labels">
+            <span>1</span>
+            <div id="ram-warning" class="ram-warning hidden">
+              ⚠ +7 sessions ≈ &gt;1,4 Go RAM
+            </div>
+            <span>10</span>
+          </div>
+        </div>
+
+        <div class="field field--inline">
+          <label class="toggle" for="discret-toggle">
+            <input type="checkbox" id="discret-toggle" />
+            <span class="toggle__slider"></span>
+          </label>
+          <div class="discret-label">
+            <span>Mode discret</span>
+            <span class="discret-hint">Fenêtres compactes repositionnées en coin d'écran</span>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btn-start" class="btn btn--primary">Lancer</button>
+          <button id="btn-stop" class="btn btn--danger" disabled>Arrêter tout</button>
+        </div>
+
+        <div id="action-message" class="action-message hidden"></div>
+      </section>
+
+      <!-- Colonne droite : proxys + statut -->
+      <section class="panel panel--right">
+
+        <div class="proxies-header">
+          <h2>Connexions réseau</h2>
+          <button id="btn-add-proxy" class="btn btn--ghost btn--sm">+ Ajouter</button>
+        </div>
+
+        <div id="proxy-list" class="proxy-list">
+          <!-- généré par app.js -->
+        </div>
+
+        <h2 class="sessions-title">Sessions actives</h2>
+        <div id="session-list" class="session-list">
+          <p class="empty-state">Aucune session en cours.</p>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
