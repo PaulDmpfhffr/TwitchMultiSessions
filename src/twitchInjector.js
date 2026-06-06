@@ -8,6 +8,28 @@ const TWITCH_INIT_SCRIPT = `
   let attempts = 0
   let playerFound = false
 
+  // Clique automatiquement sur le bouton de confirmation "contenu mature".
+  // Utilise un MutationObserver pour détecter l'apparition du bouton sans polling.
+  function bypassMatureGate() {
+    const SELECTOR = '[data-a-target="content-classification-gate-overlay-start-watching-button"]'
+
+    function tryClick() {
+      const btn = document.querySelector(SELECTOR)
+      if (btn) { btn.click(); return true }
+      return false
+    }
+
+    if (tryClick()) return
+
+    const observer = new MutationObserver(() => {
+      if (tryClick()) observer.disconnect()
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+
+    // Sécurité : débranche l'observer après 30s quoi qu'il arrive
+    setTimeout(() => observer.disconnect(), 30000)
+  }
+
   // Réduit le rendu visuel de la vidéo au minimum (économise GPU).
   // Le stream continue de tourner : le viewer est toujours compté.
   function minimizeVideoRendering() {
@@ -76,10 +98,12 @@ const TWITCH_INIT_SCRIPT = `
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       minimizeVideoRendering()
+      bypassMatureGate()
       waitForPlayer()
     })
   } else {
     minimizeVideoRendering()
+    bypassMatureGate()
     waitForPlayer()
   }
 })()
