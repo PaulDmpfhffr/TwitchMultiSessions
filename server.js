@@ -23,17 +23,18 @@ app.post('/api/config', (req, res) => {
 // --- Sessions ---
 
 app.post('/api/start', async (req, res) => {
-  const { url, sessionCount, proxies, discret } = req.body
+  const { url, sessionCount, proxies, discret, throttleKbps } = req.body
 
   if (!url || !url.includes('twitch.tv')) {
     return res.status(400).json({ error: 'URL Twitch invalide.' })
   }
 
   const count = Math.min(Math.max(1, parseInt(sessionCount) || 1), 10)
+  const throttle = Math.max(0, parseInt(throttleKbps) || 0)
 
-  configStore.update({ lastUrl: url, lastSessionCount: count, discret: !!discret })
+  configStore.update({ lastUrl: url, lastSessionCount: count, discret: !!discret, throttleKbps: throttle })
 
-  sessionManager.startSessions({ url, sessionCount: count, proxies: proxies || [], discret: !!discret })
+  sessionManager.startSessions({ url, sessionCount: count, proxies: proxies || [], discret: !!discret, throttleKbps: throttle })
     .catch(err => console.error('[/api/start]', err.message))
 
   res.json({ ok: true, message: `Lancement de ${count} session(s)…` })
@@ -49,8 +50,11 @@ app.get('/api/status', (req, res) => {
 })
 
 app.get('/api/viewers', async (req, res) => {
-  const count = await sessionManager.getViewerCount()
-  res.json({ count })
+  const [count, sourceOnly] = await Promise.all([
+    sessionManager.getViewerCount(),
+    sessionManager.isSourceOnly(),
+  ])
+  res.json({ count, sourceOnly })
 })
 
 app.post('/api/session/:id/focus', async (req, res) => {

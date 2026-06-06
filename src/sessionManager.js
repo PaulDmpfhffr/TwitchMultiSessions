@@ -61,21 +61,89 @@ function compactPosition(id) {
   return { x: Math.max(0, x), y: Math.max(0, y) }
 }
 
-async function startSessions({ url, sessionCount, proxies, discret = false }) {
+async function startSessions({ url, sessionCount, proxies, discret = false, throttleKbps = 0 }) {
   if (sessions.size > 0) throw new Error('Des sessions sont déjà actives. Arrêtez-les d\'abord.')
 
   ensureTmpDir()
 
   const launches = []
   for (let i = 0; i < sessionCount; i++) {
-    launches.push(launchSession(i + 1, url, proxies[i] || null, discret))
+    launches.push(launchSession(i + 1, url, proxies[i] || null, discret, throttleKbps))
   }
 
-  // Lancement en parallèle, on n'attend pas que tout soit prêt pour renvoyer
   Promise.allSettled(launches)
 }
 
-async function launchSession(id, url, proxyAddress, discret) {
+async function setCdpThrottle(context, page, kbps) {
+  const cdp = await context.newCDPSession(page)
+  await cdp.send('Network.enable')
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false,
+    downloadThroughput: Math.round(kbps * 1000 / 8),
+    uploadThroughput: Math.round(kbps * 100 / 8),
+    latency: 20,
+  })
+}
+
+// Détecte le bitrate réel de la qualité active via l'API React du player,
+// puis applique un throttle à 1.5× ce bitrate (marge de buffering).
+// Si la détection échoue, utilise fallbackKbps.
+async function applyAdaptiveThrottle(context, page, maxKbps, fallbackKbps) {
+  if (!maxKbps || maxKbps <= 0) return
+
+  let streamKbps = null
+
+  for (let attempt = 0; attempt < 25; attempt++) {
+    await new Promise(r => setTimeout(r, 1000))
+    try {
+      streamKbps = await page.evaluate(() => {
+        const playerEl = document.querySelector('[data-a-target="video-player"]')
+        if (!playerEl) return null
+        const reactKey = Object.keys(playerEl).find(
+          k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
+        )
+        if (!reactKey) return null
+        let fiber = playerEl[reactKey]
+        let depth = 0
+        while (fiber && depth < 80) {
+          const props = fiber.memoizedProps || fiber.pendingProps
+          if (props && props.mediaPlayerInstance) {
+            try {
+              const qualities = props.mediaPlayerInstance.getQualities()
+              if (!qualities || !qualities.length) return null
+              const currentGroup = props.mediaPlayerInstance.getQuality()
+              const active = qualities.find(q => q.group === currentGroup) || qualities[qualities.length - 1]
+              const bps = active.bitrate || active.bandwidth || null
+              return bps ? Math.round(bps / 1000) : null
+            } catch { return null }
+          }
+          fiber = fiber.return
+          depth++
+        }
+        return null
+      })
+    } catch { /* page fermée entre-temps */ }
+
+    if (streamKbps) break
+  }
+
+  if (!streamKbps) {
+    console.log(`[throttle] Détection échouée, fallback ${fallbackKbps} kbps`)
+    await setCdpThrottle(context, page, fallbackKbps).catch(() => {})
+    return
+  }
+
+  // Ne jamais descendre sous 1.2× le bitrate du stream (évite le buffering)
+  const safeMin = Math.round(streamKbps * 1.2)
+  const target  = Math.max(safeMin, Math.round(streamKbps * 1.5))
+  // Respecte le plafond utilisateur, mais jamais en dessous du safe minimum
+  const final   = Math.max(safeMin, Math.min(maxKbps, target))
+
+  console.log(`[throttle] Stream ${streamKbps} kbps → throttle appliqué à ${final} kbps`)
+  await setCdpThrottle(context, page, final).catch(() => {})
+}
+
+async function launchSession(id, url, proxyAddress, discret, throttleKbps) {
   const userData = sessionDir(id)
 
   sessions.set(id, {
@@ -141,6 +209,13 @@ async function launchSession(id, url, proxyAddress, discret) {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
     session.status = 'active'
 
+    // Throttle adaptatif : détecte le bitrate de la qualité active, puis applique la limite.
+    // Lancé en arrière-plan pour ne pas bloquer le statut "active".
+    if (throttleKbps > 0) {
+      applyAdaptiveThrottle(context, page, throttleKbps, throttleKbps)
+        .catch(e => console.error(`[Session ${id}] Throttle :`, e.message))
+    }
+
   } catch (err) {
     const session = sessions.get(id)
     if (session) {
@@ -191,6 +266,38 @@ async function focusSession(id) {
   return true
 }
 
+// Retourne true si le stream n'a qu'une qualité Source (pas de transcodage).
+// Utilisé pour afficher un avertissement dans le dashboard quand le throttle est activé.
+async function isSourceOnly() {
+  for (const [, session] of sessions.entries()) {
+    if (session.status !== 'active' || !session.page) continue
+    try {
+      return await session.page.evaluate(() => {
+        const playerEl = document.querySelector('[data-a-target="video-player"]')
+        if (!playerEl) return null
+        const reactKey = Object.keys(playerEl).find(
+          k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
+        )
+        if (!reactKey) return null
+        let fiber = playerEl[reactKey]
+        let depth = 0
+        while (fiber && depth < 80) {
+          const props = fiber.memoizedProps || fiber.pendingProps
+          if (props && props.mediaPlayerInstance) {
+            const qualities = props.mediaPlayerInstance.getQualities()
+            if (!qualities || !qualities.length) return null
+            return qualities.length === 1 || qualities.every(q => q.group === 'chunked' || !parseInt(q.name))
+          }
+          fiber = fiber.return
+          depth++
+        }
+        return null
+      })
+    } catch {}
+  }
+  return null
+}
+
 async function getViewerCount() {
   for (const [, session] of sessions.entries()) {
     if (session.status !== 'active' || !session.page) continue
@@ -209,4 +316,4 @@ async function getViewerCount() {
   return null
 }
 
-module.exports = { startSessions, stopSessions, getStatus, getPage, focusSession, getViewerCount }
+module.exports = { startSessions, stopSessions, getStatus, getPage, focusSession, getViewerCount, isSourceOnly }

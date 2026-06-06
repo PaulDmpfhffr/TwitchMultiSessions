@@ -52,6 +52,22 @@
           </div>
         </div>
 
+        <div class="field">
+          <label for="throttle-input">
+            Plafond bande passante / session
+            <span id="throttle-display" class="count-badge">500 kbps</span>
+          </label>
+          <input id="throttle-input" type="range" min="0" max="2000" value="500" step="50" />
+          <div class="range-labels">
+            <span>Désactivé</span>
+            <span>2 Mbps</span>
+          </div>
+          <p class="field-hint">La limite réelle est calculée automatiquement selon le bitrate du stream (min. 1.2×). Ce plafond ne peut pas descendre en dessous de ce minimum.</p>
+          <div id="throttle-warning" class="throttle-warning hidden">
+            ⚠ Stream Source uniquement — throttling risqué, désactivez ou mettez &gt;4000 kbps
+          </div>
+        </div>
+
         <div class="field field--inline">
           <label class="toggle" for="discret-toggle">
             <input type="checkbox" id="discret-toggle" />

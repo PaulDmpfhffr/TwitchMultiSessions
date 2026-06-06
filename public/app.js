@@ -24,6 +24,9 @@ const btnAddProxy    = document.getElementById('btn-add-proxy')
 const discretToggle      = document.getElementById('discret-toggle')
 const screenshotSlider   = document.getElementById('screenshot-interval')
 const intervalDisplay    = document.getElementById('interval-display')
+const throttleSlider     = document.getElementById('throttle-input')
+const throttleDisplay    = document.getElementById('throttle-display')
+const throttleWarning    = document.getElementById('throttle-warning')
 
 // --- Init ---
 async function init() {
@@ -38,6 +41,10 @@ async function init() {
     screenshotDelay = config.screenshotDelay
     screenshotSlider.value = config.screenshotDelay / 1000
     intervalDisplay.textContent = `${config.screenshotDelay / 1000}s`
+  }
+  if (config.throttleKbps !== undefined) {
+    throttleSlider.value = config.throttleKbps
+    throttleDisplay.textContent = config.throttleKbps === 0 ? 'Désactivé' : `${config.throttleKbps} kbps`
   }
 
   updateCountDisplay()
@@ -137,12 +144,19 @@ function saveConfig() {
     lastSessionCount: parseInt(sessionSlider.value),
     discret: discretToggle.checked,
     screenshotDelay,
+    throttleKbps: parseInt(throttleSlider.value) || 0,
   })
 }
 
 urlInput.addEventListener('change', saveConfig)
 sessionSlider.addEventListener('change', saveConfig)
 discretToggle.addEventListener('change', saveConfig)
+
+throttleSlider.addEventListener('input', () => {
+  const val = parseInt(throttleSlider.value)
+  throttleDisplay.textContent = val === 0 ? 'Désactivé' : `${val} kbps`
+  saveConfig()
+})
 
 screenshotSlider.addEventListener('input', () => {
   const val = parseInt(screenshotSlider.value)
@@ -163,12 +177,13 @@ btnStart.addEventListener('click', async () => {
   const sessionCount = parseInt(sessionSlider.value)
   const activeProxies = proxies.filter(p => p.active).map(p => p.address || null)
   const discret = discretToggle.checked
+  const throttleKbps = parseInt(throttleSlider.value) || 0
 
   setRunning(true)
   showMessage(`Lancement de ${sessionCount} session(s)…`)
   startViewerPoll()
 
-  const res = await apiFetch('/api/start', 'POST', { url, sessionCount, proxies: activeProxies, discret })
+  const res = await apiFetch('/api/start', 'POST', { url, sessionCount, proxies: activeProxies, discret, throttleKbps })
   if (!res) {
     setRunning(false)
     return
@@ -217,6 +232,9 @@ async function pollViewers() {
   }
   viewerCountValue.textContent = data.count.toLocaleString('fr-FR')
   viewerCountEl.classList.remove('hidden')
+
+  const throttleOn = parseInt(throttleSlider.value) > 0
+  throttleWarning.classList.toggle('hidden', !(data.sourceOnly && throttleOn))
 }
 
 // --- Statut sessions ---

@@ -13,6 +13,7 @@ const DEFAULT_CONFIG = {
   ],
   lastUrl: '',
   lastSessionCount: 2,
+  throttleKbps: 500,
 }
 
 function load() {
